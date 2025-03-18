@@ -77,5 +77,18 @@ macro_rules! update {
     };
 }
 
+macro_rules! println {
+    () => {
+        $crate::verbose::__eprintln!()
+    };
+    ($fmt:expr) => {
+        $crate::verbose::__eprintln!($fmt)
+    };
+    ($fmt:expr, $($arg:tt)*) => {
+        $crate::verbose::__eprintln!($fmt, $($arg)*)
+    };
+}
+
 // smoelius: "The trick": https://stackoverflow.com/a/31749071
 pub(crate) use {__eprint, __eprintln, newline, wrap};
+pub use {println};

@@ -27,13 +27,14 @@ use std::{
 use tempfile::TempDir;
 use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml::{Table, Value};
+use xdg;
 
 pub mod flush;
 pub mod github;
 pub mod packaging;
 
 mod curl;
-mod on_disk_cache;
+pub mod on_disk_cache;
 mod opts;
 mod progress;
 mod serialize;
@@ -124,6 +125,10 @@ struct Opts {
         value_name = "NAME"
     )]
     package: Option<String>,
+
+    #[cfg(all(feature = "on-disk-cache", not(windows)))]
+    #[clap(long, help = "Remove the cache directory at $HOME/.cache/cargo-unmaintained")]
+    purge: bool,
 
     #[cfg(not(windows))]
     #[clap(
@@ -224,6 +229,30 @@ thread_local! {
 
 static TOKEN_FOUND: AtomicBool = AtomicBool::new(false);
 
+#[cfg(all(feature = "on-disk-cache", not(windows)))]
+fn purge_cache_directory() -> Result<()> {
+    use std::fs;
+    use xdg::BaseDirectories;
+    
+    let base_dirs = BaseDirectories::new()
+        .with_context(|| "Failed to initialize XDG base directories")?;
+    
+    let cache_dir = base_dirs.get_cache_home().join("cargo-unmaintained/v2");
+    
+    if cache_dir.exists() {
+        if opts::get().verbose {
+            eprintln!("Removing cache directory: {}", cache_dir.display());
+        }
+        fs::remove_dir_all(&cache_dir)
+            .with_context(|| format!("Failed to remove cache directory: {}", cache_dir.display()))?;
+        println!("Cache directory removed successfully");
+    } else {
+        println!("Cache directory does not exist: {}", cache_dir.display());
+    }
+    
+    Ok(())
+}
+
 pub fn run() -> Result<()> {
     env_logger::init();
 
@@ -232,6 +261,11 @@ pub fn run() -> Result<()> {
     } = Cargo::parse_from(args());
 
     opts::init(opts);
+
+    #[cfg(all(feature = "on-disk-cache", not(windows)))]
+    if opts::get().purge {
+        return purge_cache_directory();
+    }
 
     if opts::get().save_token {
         // smoelius: Currently, if additional options are passed besides --save-token, they are
