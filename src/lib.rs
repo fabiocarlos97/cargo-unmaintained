@@ -1094,4 +1094,5 @@ mod tests {
         xs.sort_by_key(|repo_status| repo_status.erase_url());
         assert_eq!(xs, ys);
     }
+
 }
