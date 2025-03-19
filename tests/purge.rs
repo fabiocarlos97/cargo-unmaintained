@@ -25,14 +25,15 @@ mod tests {
         cmd.env("XDG_CACHE_HOME", dir.path());
         
         // Run the unmaintained command with --purge
-        cmd.arg("unmaintained")
-           .arg("--purge");
+        cmd.arg("unmaintained").arg("--purge");
         
         // Execute and assert success
         let output = cmd.output().unwrap();
-        assert!(output.status.success(), 
-                "Command failed with: {}", 
-                String::from_utf8_lossy(&output.stderr));
+        assert!(
+            output.status.success(),
+            "Command failed with: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
         
         // Verify the directory was removed
         assert!(!cache_path.exists(), "Cache directory still exists");

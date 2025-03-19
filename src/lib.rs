@@ -104,7 +104,10 @@ struct Opts {
     max_age: u64,
 
     #[cfg(all(feature = "on-disk-cache", not(windows)))]
-    #[clap(long, help = "Do not cache data on disk for future runs")]
+    #[clap(
+        long,
+        help = "Do not cache data on disk for future runs"
+    )]
     no_cache: bool,
 
     #[clap(
@@ -126,7 +129,10 @@ struct Opts {
     package: Option<String>,
 
     #[cfg(all(feature = "on-disk-cache", not(windows)))]
-    #[clap(long, help = "Remove the cache directory at $HOME/.cache/cargo-unmaintained")]
+    #[clap(
+        long,
+        help = "Remove the cache directory at $HOME/.cache/cargo-unmaintained"
+    )]
     purge: bool,
 
     #[cfg(not(windows))]
@@ -231,9 +237,9 @@ static TOKEN_FOUND: AtomicBool = AtomicBool::new(false);
 #[cfg(all(feature = "on-disk-cache", not(windows)))]
 fn purge_cache_directory() -> Result<()> {
     use std::fs;
-    
+
     let cache_dir = &*on_disk_cache::CACHE_DIRECTORY;
-    
+
     if cache_dir.exists() {
         if opts::get().verbose {
             eprintln!("Removing cache directory: {}", cache_dir.display());
@@ -244,7 +250,7 @@ fn purge_cache_directory() -> Result<()> {
     } else {
         println!("Cache directory does not exist: {}", cache_dir.display());
     }
-    
+
     Ok(())
 }
 

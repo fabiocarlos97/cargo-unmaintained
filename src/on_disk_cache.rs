@@ -249,6 +249,7 @@ impl Cache {
         Ok(*self.repository_timestamps.get(&digest).unwrap())
     }
 
+    #[cfg_attr(dylint_lib = "non_local_effect_before_error_return", allow(non_local_effect_before_error_return))]
     pub fn fetch_versions(&mut self, name: &str) -> Result<Vec<Version>> {
         // smoelius: Ignore any errors that may occur while reading/deserializing.
         if let Ok(versions) = self.versions(name) {
