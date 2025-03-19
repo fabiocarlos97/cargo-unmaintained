@@ -1,11 +1,11 @@
 #[cfg(all(feature = "on-disk-cache", not(windows)))]
 mod tests {
-    use assert_cmd::prelude::*;
-    use std::{fs, path::Path, process::Command};
-    use tempfile::tempdir;
-
     #[test]
     fn test_purge() {
+        use assert_cmd::cargo::CommandCargoExt;
+        use std::{fs, process::Command};
+        use tempfile::tempdir;
+        
         // Create a mock cache directory
         let dir = tempdir().unwrap();
         let cache_path = dir.path().join("cargo-unmaintained/v2");
@@ -18,8 +18,12 @@ mod tests {
         // Verify the file exists
         assert!(test_file.exists());
         
-        // Run the purge command with environment variable to override cache path
-        let mut cmd = Command::cargo_bin("cargo-unmaintained").unwrap();
+        // Run the purge command
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE=cargo-unmaintained"));
+        if cmd.output().is_err() {
+            // Fall back to using cargo_bin if the environment variable isn't set
+            cmd = Command::cargo_bin("cargo-unmaintained").unwrap();
+        }
         
         // Set environment variable for XDG_CACHE_HOME to our temp directory
         cmd.env("XDG_CACHE_HOME", dir.path());
@@ -29,9 +33,12 @@ mod tests {
            .arg("--purge");
         
         // Execute and assert success
-        cmd.assert().success();
+        let output = cmd.output().unwrap();
+        assert!(output.status.success(), 
+                "Command failed with: {}", 
+                String::from_utf8_lossy(&output.stderr));
         
         // Verify the directory was removed
-        assert!(!cache_path.exists());
+        assert!(!cache_path.exists(), "Cache directory still exists");
     }
 } 

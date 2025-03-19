@@ -259,7 +259,13 @@ pub fn run() -> Result<()> {
 
     #[cfg(all(feature = "on-disk-cache", not(windows)))]
     if opts::get().purge {
-        return purge_cache_directory();
+        match purge_cache_directory() {
+            Ok(()) => exit(0),
+            Err(err) => {
+                eprintln!("Error while purging cache: {err:?}");
+                exit(2);
+            }
+        }
     }
 
     if opts::get().save_token {
