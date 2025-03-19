@@ -19,11 +19,7 @@ mod tests {
         assert!(test_file.exists());
         
         // Run the purge command
-        let mut cmd = Command::new(env!("CARGO_BIN_EXE=cargo-unmaintained"));
-        if cmd.output().is_err() {
-            // Fall back to using cargo_bin if the environment variable isn't set
-            cmd = Command::cargo_bin("cargo-unmaintained").unwrap();
-        }
+        let mut cmd = Command::cargo_bin("cargo-unmaintained").unwrap();
         
         // Set environment variable for XDG_CACHE_HOME to our temp directory
         cmd.env("XDG_CACHE_HOME", dir.path());
