@@ -27,7 +27,6 @@ use std::{
 use tempfile::TempDir;
 use termcolor::{ColorChoice, ColorSpec, StandardStream, WriteColor};
 use toml::{Table, Value};
-use xdg;
 
 pub mod flush;
 pub mod github;
@@ -232,18 +231,14 @@ static TOKEN_FOUND: AtomicBool = AtomicBool::new(false);
 #[cfg(all(feature = "on-disk-cache", not(windows)))]
 fn purge_cache_directory() -> Result<()> {
     use std::fs;
-    use xdg::BaseDirectories;
     
-    let base_dirs = BaseDirectories::new()
-        .with_context(|| "Failed to initialize XDG base directories")?;
-    
-    let cache_dir = base_dirs.get_cache_home().join("cargo-unmaintained/v2");
+    let cache_dir = &*on_disk_cache::CACHE_DIRECTORY;
     
     if cache_dir.exists() {
         if opts::get().verbose {
             eprintln!("Removing cache directory: {}", cache_dir.display());
         }
-        fs::remove_dir_all(&cache_dir)
+        fs::remove_dir_all(cache_dir)
             .with_context(|| format!("Failed to remove cache directory: {}", cache_dir.display()))?;
         println!("Cache directory removed successfully");
     } else {

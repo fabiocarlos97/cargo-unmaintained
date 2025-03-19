@@ -54,7 +54,7 @@ struct Entry {
     cloned_url: String,
 }
 
-pub(crate) struct Cache {
+pub struct Cache {
     tempdir: Option<TempDir>,
     refresh_age: u64, // days
     entries: HashMap<String, Entry>,
