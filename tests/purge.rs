@@ -1,3 +1,4 @@
+#[rustfmt::skip]
 #[cfg(all(feature = "on-disk-cache", not(windows)))]
 mod tests {
     #[test]
@@ -38,4 +39,5 @@ mod tests {
         // Verify the directory was removed
         assert!(!cache_path.exists(), "Cache directory still exists");
     }
+
 }

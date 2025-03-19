@@ -251,13 +251,12 @@ impl Cache {
 
     pub fn fetch_versions(&mut self, name: &str) -> Result<Vec<Version>> {
         // First try to get cached versions if they're current
-        let cached_versions: Option<Vec<Version>> = match self.versions(name) {
-            Ok(versions) if self.versions_are_current(name).unwrap_or_default() => {
+        #[cfg_attr(dylint_lib = "general", allow(non_local_effect_before_error_return))]
+        if let Ok(versions) = self.versions(name) {
+            if self.versions_are_current(name).unwrap_or_default() {
                 return Ok(versions);
             }
-            Ok(_) => None,
-            Err(_) => None,
-        };
+        }
 
         // If we got here, we need to fetch new versions
         let crate_response = CRATES_IO_SYNC_CLIENT.get_crate(name)?;
