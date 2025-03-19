@@ -104,10 +104,7 @@ struct Opts {
     max_age: u64,
 
     #[cfg(all(feature = "on-disk-cache", not(windows)))]
-    #[clap(
-        long,
-        help = "Do not cache data on disk for future runs"
-    )]
+    #[clap(long, help = "Do not cache data on disk for future runs")]
     no_cache: bool,
 
     #[clap(
@@ -244,8 +241,9 @@ fn purge_cache_directory() -> Result<()> {
         if opts::get().verbose {
             eprintln!("Removing cache directory: {}", cache_dir.display());
         }
-        fs::remove_dir_all(cache_dir)
-            .with_context(|| format!("Failed to remove cache directory: {}", cache_dir.display()))?;
+        std::fs::remove_dir_all(cache_dir).with_context(|| {
+            format!("Failed to remove cache directory: {}", cache_dir.display())
+        })?;
         println!("Cache directory removed successfully");
     } else {
         println!("Cache directory does not exist: {}", cache_dir.display());

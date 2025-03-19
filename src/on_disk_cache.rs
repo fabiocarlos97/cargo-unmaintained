@@ -249,23 +249,24 @@ impl Cache {
         Ok(*self.repository_timestamps.get(&digest).unwrap())
     }
 
-    #[cfg_attr(dylint_lib = "non_local_effect_before_error_return", allow(non_local_effect_before_error_return))]
     pub fn fetch_versions(&mut self, name: &str) -> Result<Vec<Version>> {
-        // smoelius: Ignore any errors that may occur while reading/deserializing.
-        if let Ok(versions) = self.versions(name) {
-            if self.versions_are_current(name).unwrap_or_default() {
+        // First try to get cached versions if they're current
+        let cached_versions: Option<Vec<Version>> = match self.versions(name) {
+            Ok(versions) if self.versions_are_current(name).unwrap_or_default() => {
                 return Ok(versions);
             }
-        }
+            Ok(_) => None,
+            Err(_) => None,
+        };
 
+        // If we got here, we need to fetch new versions
         let crate_response = CRATES_IO_SYNC_CLIENT.get_crate(name)?;
-        // smoelius: Avoid using anything other than `versions` from `CrateResponse`. In particular,
-        // avoid using `crate_data`. The same data should be available in the crates.io index.
         let versions = crate_response.versions;
+
+        // Write versions to cache and update in-memory state
+        let timestamp = SystemTime::now();
         self.write_versions(name, &versions)?;
         self.versions.insert(name.to_owned(), versions.clone());
-
-        let timestamp = SystemTime::now();
         self.write_versions_timestamp(name, timestamp)?;
         self.versions_timestamps.insert(name.to_owned(), timestamp);
 
