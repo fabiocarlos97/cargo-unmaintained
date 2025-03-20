@@ -3,6 +3,7 @@ use anyhow::Result;
 
 pub(crate) trait Github {
     fn load_token(f: impl FnOnce(&str) -> Result<()>) -> Result<bool>;
+    #[allow(dead_code)]
     fn save_token() -> Result<()>;
     fn archival_status(url: Url) -> Result<RepoStatus<()>>;
 }

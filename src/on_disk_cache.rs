@@ -376,6 +376,13 @@ impl Cache {
     }
 }
 
+#[cfg(all(feature = "on-disk-cache", not(windows)))]
+pub(crate) fn purge_cache_directory() -> Result<()> {
+    use std::fs::remove_dir_all;
+    remove_dir_all(&*CACHE_DIRECTORY)
+        .with_context(|| format!("failed to remove `{}`", CACHE_DIRECTORY.display()))
+}
+
 fn url_digest(url: &str) -> String {
     sha1_smol::Sha1::from(url).hexdigest()
 }

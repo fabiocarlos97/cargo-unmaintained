@@ -62,6 +62,7 @@ pub fn load_token(f: impl FnOnce(&str) -> Result<()>) -> Result<bool> {
     Ok(true)
 }
 
+#[allow(dead_code)]
 pub(crate) fn save_token() -> Result<()> {
     println!("Please paste a personal access token below. The token needs no scopes.");
 

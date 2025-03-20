@@ -231,51 +231,23 @@ thread_local! {
 
 static TOKEN_FOUND: AtomicBool = AtomicBool::new(false);
 
-#[cfg(all(feature = "on-disk-cache", not(windows)))]
-fn purge_cache_directory() -> Result<()> {
-    use std::fs;
-
-    let cache_dir = &*on_disk_cache::CACHE_DIRECTORY;
-
-    if cache_dir.exists() {
-        if opts::get().verbose {
-            eprintln!("Removing cache directory: {}", cache_dir.display());
-        }
-        std::fs::remove_dir_all(cache_dir).with_context(|| {
-            format!("Failed to remove cache directory: {}", cache_dir.display())
-        })?;
-        println!("Cache directory removed successfully");
-    } else {
-        println!("Cache directory does not exist: {}", cache_dir.display());
-    }
-
-    Ok(())
-}
-
 pub fn run() -> Result<()> {
     env_logger::init();
 
     let Cargo {
         subcmd: CargoSubCommand::Unmaintained(opts),
-    } = Cargo::parse_from(args());
+    } = Cargo::parse_from(args().collect::<Vec<_>>());
 
     opts::init(opts);
 
-    #[cfg(all(feature = "on-disk-cache", not(windows)))]
-    if opts::get().purge {
-        match purge_cache_directory() {
-            Ok(()) => exit(0),
-            Err(err) => {
-                eprintln!("Error while purging cache: {err:?}");
-                exit(2);
-            }
-        }
+    #[cfg(not(windows))]
+    if opts::get().save_token {
+        return github::real::util::save_token();
     }
 
-    if opts::get().save_token {
-        // smoelius: Currently, if additional options are passed besides --save-token, they are
-        // ignored and no error is emitted. This is ugly.
-        return Github::save_token();
+    #[cfg(all(feature = "on-disk-cache", not(windows)))]
+    if opts::get().purge {
+        return on_disk_cache::purge_cache_directory();
     }
 
     if Github::load_token(|_| Ok(()))? {
@@ -1094,5 +1066,4 @@ mod tests {
         xs.sort_by_key(|repo_status| repo_status.erase_url());
         assert_eq!(xs, ys);
     }
-
 }
