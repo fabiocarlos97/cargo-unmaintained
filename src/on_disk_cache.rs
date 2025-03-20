@@ -68,12 +68,21 @@ thread_local! {
 }
 
 #[cfg(all(feature = "on-disk-cache", not(windows)))]
-#[allow(clippy::unwrap_used)]
 pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
     let base_directories = xdg::BaseDirectories::new().unwrap();
     base_directories
         .create_cache_directory("cargo-unmaintained/v2")
         .unwrap()
+});
+
+#[cfg(all(feature = "on-disk-cache", windows))]
+pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
+    let local_app_data = std::env::var("LOCALAPPDATA")
+        .expect("LOCALAPPDATA environment variable not set");
+    let cache_dir = PathBuf::from(local_app_data).join("cargo-unmaintained").join("v2");
+    std::fs::create_dir_all(&cache_dir)
+        .expect("failed to create cache directory");
+    cache_dir
 });
 
 #[allow(clippy::unwrap_used)]
@@ -83,10 +92,10 @@ static CRATES_IO_SYNC_CLIENT: LazyLock<SyncClient> =
 pub fn with_cache<T>(f: impl FnOnce(&mut Cache) -> T) -> T {
     CACHE_ONCE_CELL.with_borrow_mut(|once_cell| {
         let _: &Cache = once_cell.get_or_init(|| {
-            #[cfg(all(feature = "on-disk-cache", not(windows)))]
+            #[cfg(feature = "on-disk-cache")]
             let temporary = crate::opts::get().no_cache;
 
-            #[cfg(any(not(feature = "on-disk-cache"), windows))]
+            #[cfg(not(feature = "on-disk-cache"))]
             let temporary = true;
 
             #[allow(clippy::panic)]
@@ -251,17 +260,13 @@ impl Cache {
         Ok(*self.repository_timestamps.get(&digest).unwrap())
     }
 
+    #[cfg_attr(dylint_lib = "general", allow(non_local_effect_before_error_return))]
     pub fn fetch_versions(&mut self, name: &str) -> Result<Vec<Version>> {
-        // Check if we have current versions in cache first
-        let cache_check = {
-            match (self.versions(name), self.versions_are_current(name)) {
-                (Ok(versions), Ok(true)) => Some(versions),
-                _ => None,
+        // First try to get versions from cache
+        if let Ok(versions) = self.versions(name) {
+            if let Ok(true) = self.versions_are_current(name) {
+                return Ok(versions);
             }
-        };
-
-        if let Some(versions) = cache_check {
-            return Ok(versions);
         }
 
         // Fetch new versions from crates.io
@@ -375,15 +380,15 @@ impl Cache {
     fn base_dir(&self) -> &Path {
         let base_dir = self.tempdir.as_ref().map(TempDir::path);
 
-        #[cfg(all(feature = "on-disk-cache", not(windows)))]
+        #[cfg(feature = "on-disk-cache")]
         {
-            // On Unix systems (Linux/macOS), use XDG cache directory if available
+            // Use persistent cache directory if available
             base_dir.unwrap_or(&CACHE_DIRECTORY)
         }
 
-        #[cfg(any(not(feature = "on-disk-cache"), windows))]
+        #[cfg(not(feature = "on-disk-cache"))]
         {
-            // On Windows or when on-disk cache is disabled, always use temporary directory
+            // When on-disk cache is disabled, always use temporary directory
             #[allow(clippy::unwrap_used)]
             base_dir.unwrap()
         }
@@ -402,14 +407,26 @@ impl Cache {
         Ok(())
     }
 
-    #[cfg(any(not(feature = "on-disk-cache"), windows))]
+    #[cfg(all(feature = "on-disk-cache", windows))]
     fn ensure_cache_dir(&self) -> Result<()> {
-        // No need to create persistent cache dir on Windows or when cache is disabled
+        if self.tempdir.is_none() {
+            create_dir_all(&*CACHE_DIRECTORY).with_context(|| {
+                format!(
+                    "failed to create cache directory: {}",
+                    CACHE_DIRECTORY.display()
+                )
+            })?;
+        }
         Ok(())
+    }
+
+    #[cfg(not(feature = "on-disk-cache"))]
+    fn ensure_cache_dir() {
+        // No need to create persistent cache dir when cache is disabled
     }
 }
 
-#[cfg(all(feature = "on-disk-cache", not(windows)))]
+#[cfg(feature = "on-disk-cache")]
 pub(crate) fn purge_cache_directory() -> Result<()> {
     use std::fs::remove_dir_all;
     remove_dir_all(&*CACHE_DIRECTORY)

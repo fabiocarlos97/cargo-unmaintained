@@ -61,35 +61,34 @@ Usage: cargo unmaintained [OPTIONS]
 Options:
       --color <WHEN>    When to use color: always, auto, or never [default: auto]
       --fail-fast       Exit as soon as an unmaintained package is found
-      --json            Output JSON (experimental)
-      --max-age <DAYS>  Age in days that a repository's last commit must not exceed for the
-                        repository to be considered current; 0 effectively disables this check,
-                        though ages are still reported [default: 365]
-      --no-cache        Do not cache data on disk for future runs
-      --no-exit-code    Do not set exit status when unmaintained packages are found
-      --no-warnings     Do not show warnings
-  -p, --package <NAME>  Check only whether package NAME is unmaintained
-      --save-token      Read a personal access token from standard input and save it to
-                        $HOME/.config/cargo-unmaintained/token.txt
-      --tree            Show paths to unmaintained packages
-      --verbose         Show information about what cargo-unmaintained is doing
-  -h, --help            Print help
-  -V, --version         Print version
+      --json           Output JSON (experimental)
+      --max-age <DAYS> Age in days that a repository's last commit must not exceed for the repository to be
+                       considered current; 0 effectively disables this check, though ages are still reported
+                       [default: 365]
+      --no-exit-code   Do not set exit status when unmaintained packages are found
+      --no-warnings    Do not show warnings
+  -p, --package <NAME> Check only whether package NAME is unmaintained
+      --save-token     Read a personal access token from standard input and save it to
+                       $HOME/.config/cargo-unmaintained/token.txt
+      --tree          Show paths to unmaintained packages
+      --verbose       Show information about what cargo-unmaintained is doing
+  -h, --help         Print help
+  -V, --version      Print version
 
-The `GITHUB_TOKEN_PATH` environment variable can be set to the path of a file containing a personal
-access token. If set, cargo-unmaintained will use this token to authenticate to GitHub and check
-whether packages' repositories have been archived.
+The `GITHUB_TOKEN_PATH` environment variable can be set to the path of a file containing a personal access
+token. If set, cargo-unmaintained will use this token to authenticate to GitHub and check whether packages'
+repositories have been archived.
 
-Alternatively, the `GITHUB_TOKEN` environment variable can be set to a personal access token.
-However, use of `GITHUB_TOKEN_PATH` is recommended as it is less likely to leak the token.
+Alternatively, the `GITHUB_TOKEN` environment variable can be set to a personal access token. However, use of
+`GITHUB_TOKEN_PATH` is recommended as it is less likely to leak the token.
 
 If neither `GITHUB_TOKEN_PATH` nor `GITHUB_TOKEN` is set, but a file exists at
-$HOME/.config/cargo-unmaintained/token.txt, cargo-unmaintained will use that file's contents as a
-personal access token.
+$HOME/.config/cargo-unmaintained/token.txt, cargo-unmaintained will use that file's contents as a personal
+access token.
 
 Unless --no-exit-code is passed, the exit status is 0 if no unmaintained packages were found and no
-irrecoverable errors occurred, 1 if unmaintained packages were found, and 2 if an irrecoverable
-error occurred.
+irrecoverable errors occurred, 1 if unmaintained packages were found, and 2 if an irrecoverable error
+occurred.
 ```
 
 ## Ignoring packages
