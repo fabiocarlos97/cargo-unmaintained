@@ -20,5 +20,3 @@ pub use mock::Impl;
 pub(crate) mod real;
 #[cfg(any(not(feature = "__mock_github"), feature = "__real_github"))]
 pub use real::Impl;
-#[cfg(any(not(feature = "__mock_github"), feature = "__real_github"))]
-pub use real::util;
