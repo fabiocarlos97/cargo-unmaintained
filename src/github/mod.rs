@@ -1,7 +1,7 @@
 use super::{RepoStatus, Url};
 use anyhow::Result;
 
-pub(crate) trait Github {
+pub trait Github {
     fn load_token(f: impl FnOnce(&str) -> Result<()>) -> Result<bool>;
     #[allow(dead_code)]
     fn save_token() -> Result<()>;
