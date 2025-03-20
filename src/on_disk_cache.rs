@@ -252,37 +252,32 @@ impl Cache {
     }
 
     pub fn fetch_versions(&mut self, name: &str) -> Result<Vec<Version>> {
-        // First check if we have current versions in cache
-        let has_current_versions = {
-            if let Ok(versions) = self.versions(name) {
-                if let Ok(is_current) = self.versions_are_current(name) {
-                    if is_current {
-                        return Ok(versions);
-                    }
-                }
+        // Check if we have current versions in cache first
+        let cache_check = {
+            match (self.versions(name), self.versions_are_current(name)) {
+                (Ok(versions), Ok(true)) => Some(versions),
+                _ => None,
             }
-            false
         };
 
-        if !has_current_versions {
-            // Fetch new versions from crates.io
-            let crate_response = CRATES_IO_SYNC_CLIENT.get_crate(name)?;
-            let versions = crate_response.versions;
-            let timestamp = SystemTime::now();
-
-            // Write to disk first
-            self.write_versions(name, &versions)?;
-            self.write_versions_timestamp(name, timestamp)?;
-
-            // Update in-memory cache only after successful disk writes
-            self.versions.insert(name.to_owned(), versions.clone());
-            self.versions_timestamps.insert(name.to_owned(), timestamp);
-
-            Ok(versions)
-        } else {
-            // This branch should never be reached due to the early return above
-            unreachable!()
+        if let Some(versions) = cache_check {
+            return Ok(versions);
         }
+
+        // Fetch new versions from crates.io
+        let crate_response = CRATES_IO_SYNC_CLIENT.get_crate(name)?;
+        let versions = crate_response.versions;
+        let timestamp = SystemTime::now();
+
+        // Write to disk first
+        self.write_versions(name, &versions)?;
+        self.write_versions_timestamp(name, timestamp)?;
+
+        // Update in-memory cache only after successful disk writes
+        self.versions.insert(name.to_owned(), versions.clone());
+        self.versions_timestamps.insert(name.to_owned(), timestamp);
+
+        Ok(versions)
     }
 
     fn versions(&mut self, name: &str) -> Result<Vec<Version>> {
@@ -397,8 +392,12 @@ impl Cache {
     #[cfg(all(feature = "on-disk-cache", not(windows)))]
     fn ensure_cache_dir(&self) -> Result<()> {
         if self.tempdir.is_none() {
-            create_dir_all(&*CACHE_DIRECTORY)
-                .with_context(|| format!("failed to create cache directory: {}", CACHE_DIRECTORY.display()))?;
+            create_dir_all(&*CACHE_DIRECTORY).with_context(|| {
+                format!(
+                    "failed to create cache directory: {}",
+                    CACHE_DIRECTORY.display()
+                )
+            })?;
         }
         Ok(())
     }
