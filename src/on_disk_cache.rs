@@ -35,7 +35,7 @@ use std::{
     collections::HashMap,
     fs::{File, create_dir_all, read_to_string, write},
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Stdio, exit},
     str::FromStr,
     sync::LazyLock,
     time::{Duration, SystemTime},
@@ -76,14 +76,14 @@ pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
     let base_directories = xdg::BaseDirectories::new()
         .map_err(|err| {
             eprintln!("Failed to create base directories: {err}");
-            std::process::exit(1);
+            exit(1);
         })
         .unwrap();
     base_directories
         .create_cache_directory("cargo-unmaintained/v2")
         .map_err(|err| {
             eprintln!("Failed to create cache directory: {err}");
-            std::process::exit(1);
+            exit(1);
         })
         .unwrap()
 });

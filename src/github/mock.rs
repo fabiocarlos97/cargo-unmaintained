@@ -24,7 +24,8 @@ impl super::Github for Impl {
             url.as_str()
                 .replace(|c: char| !c.is_ascii_alphanumeric(), "_")
         );
-        if !enabled(&exists_key) {
+        // Only return Nonexistent if explicitly set to not exist
+        if enabled(&exists_key) && std::env::var(&exists_key).unwrap() == "0" {
             return Ok(RepoStatus::Nonexistent(url));
         }
         if enabled(&key) {

@@ -69,11 +69,9 @@ Options:
       --no-exit-code    Do not set exit status when unmaintained packages are found
       --no-warnings     Do not show warnings
   -p, --package <NAME>  Check only whether package NAME is unmaintained
-      --purge           Remove the cache directory at %LOCALAPPDATA%\cargo-unmaintained (Windows) or
-                        $HOME/.cache/cargo-unmaintained (Unix)
+      --purge           Remove the cache directory at $HOME/.cache/cargo-unmaintained
       --save-token      Read a personal access token from standard input and save it to
-                        %LOCALAPPDATA%\cargo-unmaintained\token.txt (Windows) or
-                        $HOME/.config/cargo-unmaintained/token.txt (Unix)
+                        $HOME/.config/cargo-unmaintained/token.txt
       --tree            Show paths to unmaintained packages
       --verbose         Show information about what cargo-unmaintained is doing
   -h, --help            Print help
@@ -87,8 +85,7 @@ Alternatively, the `GITHUB_TOKEN` environment variable can be set to a personal 
 However, use of `GITHUB_TOKEN_PATH` is recommended as it is less likely to leak the token.
 
 If neither `GITHUB_TOKEN_PATH` nor `GITHUB_TOKEN` is set, but a file exists at
-%LOCALAPPDATA%\cargo-unmaintained\token.txt (Windows) or
-$HOME/.config/cargo-unmaintained/token.txt (Unix), cargo-unmaintained will use that file's contents as a
+$HOME/.config/cargo-unmaintained/token.txt, cargo-unmaintained will use that file's contents as a
 personal access token.
 
 Unless --no-exit-code is passed, the exit status is 0 if no unmaintained packages were found and no
