@@ -113,14 +113,16 @@ impl Cache {
         } else {
             None
         };
-        Ok(Self {
+        let mut cache = Self {
             tempdir,
             refresh_age,
             entries: HashMap::new(),
             repository_timestamps: HashMap::new(),
             versions: HashMap::new(),
             versions_timestamps: HashMap::new(),
-        })
+        };
+        cache.ensure_cache_dir()?;
+        Ok(cache)
     }
 
     #[cfg_attr(dylint_lib = "general", allow(non_local_effect_before_error_return))]
@@ -250,23 +252,28 @@ impl Cache {
     }
 
     pub fn fetch_versions(&mut self, name: &str) -> Result<Vec<Version>> {
-        // First try to get cached versions if they're current
-        #[cfg_attr(dylint_lib = "general", allow(non_local_effect_before_error_return))]
-        if let Ok(versions) = self.versions(name) {
-            if self.versions_are_current(name).unwrap_or_default() {
-                return Ok(versions);
+        // First try to get cached versions
+        let cached_versions = self.versions(name);
+        
+        if let Ok(versions) = cached_versions {
+            if let Ok(is_current) = self.versions_are_current(name) {
+                if is_current {
+                    return Ok(versions);
+                }
             }
         }
 
         // If we got here, we need to fetch new versions
         let crate_response = CRATES_IO_SYNC_CLIENT.get_crate(name)?;
         let versions = crate_response.versions;
+        let timestamp = SystemTime::now();
 
         // Write versions to cache and update in-memory state
-        let timestamp = SystemTime::now();
         self.write_versions(name, &versions)?;
-        self.versions.insert(name.to_owned(), versions.clone());
         self.write_versions_timestamp(name, timestamp)?;
+        
+        // Only update in-memory state after all file operations succeed
+        self.versions.insert(name.to_owned(), versions.clone());
         self.versions_timestamps.insert(name.to_owned(), timestamp);
 
         Ok(versions)
@@ -368,11 +375,32 @@ impl Cache {
         let base_dir = self.tempdir.as_ref().map(TempDir::path);
 
         #[cfg(all(feature = "on-disk-cache", not(windows)))]
-        return base_dir.unwrap_or(&CACHE_DIRECTORY);
+        {
+            // On Unix systems (Linux/macOS), use XDG cache directory if available
+            base_dir.unwrap_or(&CACHE_DIRECTORY)
+        }
 
         #[cfg(any(not(feature = "on-disk-cache"), windows))]
-        #[allow(clippy::unwrap_used)]
-        base_dir.unwrap()
+        {
+            // On Windows or when on-disk cache is disabled, always use temporary directory
+            #[allow(clippy::unwrap_used)]
+            base_dir.unwrap()
+        }
+    }
+
+    #[cfg(all(feature = "on-disk-cache", not(windows)))]
+    fn ensure_cache_dir(&self) -> Result<()> {
+        if self.tempdir.is_none() {
+            create_dir_all(&*CACHE_DIRECTORY)
+                .with_context(|| format!("failed to create cache directory: {}", CACHE_DIRECTORY.display()))?;
+        }
+        Ok(())
+    }
+
+    #[cfg(any(not(feature = "on-disk-cache"), windows))]
+    fn ensure_cache_dir(&self) -> Result<()> {
+        // No need to create persistent cache dir on Windows or when cache is disabled
+        Ok(())
     }
 }
 
