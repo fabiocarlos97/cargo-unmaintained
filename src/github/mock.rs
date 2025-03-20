@@ -18,6 +18,15 @@ impl super::Github for Impl {
             url.as_str()
                 .replace(|c: char| !c.is_ascii_alphanumeric(), "_")
         );
+        // Check if the repository exists
+        let exists_key = format!(
+            "EXISTS_{}",
+            url.as_str()
+                .replace(|c: char| !c.is_ascii_alphanumeric(), "_")
+        );
+        if !enabled(&exists_key) {
+            return Ok(RepoStatus::Nonexistent(url));
+        }
         if enabled(&key) {
             Ok(RepoStatus::Archived(url))
         } else {

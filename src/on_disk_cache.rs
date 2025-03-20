@@ -73,9 +73,18 @@ thread_local! {
 
 #[cfg(all(feature = "on-disk-cache", not(windows)))]
 pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
-    let base_directories = xdg::BaseDirectories::new().unwrap();
+    let base_directories = xdg::BaseDirectories::new()
+        .map_err(|err| {
+            eprintln!("Failed to create base directories: {err}");
+            std::process::exit(1);
+        })
+        .unwrap();
     base_directories
         .create_cache_directory("cargo-unmaintained/v2")
+        .map_err(|err| {
+            eprintln!("Failed to create cache directory: {err}");
+            std::process::exit(1);
+        })
         .unwrap()
 });
 
