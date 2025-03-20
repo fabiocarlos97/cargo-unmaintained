@@ -103,8 +103,7 @@ struct Opts {
     )]
     max_age: u64,
 
-    #[cfg(all(feature = "on-disk-cache", not(windows)))]
-    #[clap(long, help = "Do not cache data on disk for future runs")]
+    #[clap(long, help = "Do not use persistent cache")]
     no_cache: bool,
 
     #[clap(

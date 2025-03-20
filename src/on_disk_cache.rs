@@ -40,6 +40,10 @@ use std::{
     sync::LazyLock,
     time::{Duration, SystemTime},
 };
+
+#[cfg(feature = "on-disk-cache")]
+use std::fs::remove_dir_all;
+
 use tempfile::{TempDir, tempdir};
 
 const DEFAULT_REFRESH_AGE: u64 = 30; // days
@@ -77,11 +81,18 @@ pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
 
 #[cfg(all(feature = "on-disk-cache", windows))]
 pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
-    let local_app_data = std::env::var("LOCALAPPDATA")
-        .expect("LOCALAPPDATA environment variable not set");
-    let cache_dir = PathBuf::from(local_app_data).join("cargo-unmaintained").join("v2");
-    std::fs::create_dir_all(&cache_dir)
-        .expect("failed to create cache directory");
+    use std::process::exit;
+    let Ok(local_app_data) = std::env::var("LOCALAPPDATA") else {
+        eprintln!("LOCALAPPDATA environment variable not set");
+        exit(1);
+    };
+    let cache_dir = PathBuf::from(local_app_data)
+        .join("cargo-unmaintained")
+        .join("v2");
+    if let Err(err) = create_dir_all(&cache_dir) {
+        eprintln!("Failed to create cache directory: {err}");
+        exit(1);
+    }
     cache_dir
 });
 
@@ -421,16 +432,25 @@ impl Cache {
     }
 
     #[cfg(not(feature = "on-disk-cache"))]
-    fn ensure_cache_dir() {
-        // No need to create persistent cache dir when cache is disabled
+    fn ensure_cache_dir(&self) -> Result<()> {
+        Ok(())
     }
 }
 
-#[cfg(feature = "on-disk-cache")]
+#[allow(dead_code)]
 pub(crate) fn purge_cache_directory() -> Result<()> {
-    use std::fs::remove_dir_all;
-    remove_dir_all(&*CACHE_DIRECTORY)
-        .with_context(|| format!("failed to remove `{}`", CACHE_DIRECTORY.display()))
+    #[cfg(feature = "on-disk-cache")]
+    {
+        if CACHE_DIRECTORY.exists() {
+            remove_dir_all(&*CACHE_DIRECTORY).with_context(|| {
+                format!(
+                    "failed to remove cache directory: {}",
+                    CACHE_DIRECTORY.display()
+                )
+            })?;
+        }
+    }
+    Ok(())
 }
 
 fn url_digest(url: &str) -> String {
