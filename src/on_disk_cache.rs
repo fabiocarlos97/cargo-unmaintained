@@ -113,7 +113,7 @@ impl Cache {
         } else {
             None
         };
-        let mut cache = Self {
+        let cache = Self {
             tempdir,
             refresh_age,
             entries: HashMap::new(),
@@ -252,31 +252,37 @@ impl Cache {
     }
 
     pub fn fetch_versions(&mut self, name: &str) -> Result<Vec<Version>> {
-        // First try to get cached versions
-        let cached_versions = self.versions(name);
-        
-        if let Ok(versions) = cached_versions {
-            if let Ok(is_current) = self.versions_are_current(name) {
-                if is_current {
-                    return Ok(versions);
+        // First check if we have current versions in cache
+        let has_current_versions = {
+            if let Ok(versions) = self.versions(name) {
+                if let Ok(is_current) = self.versions_are_current(name) {
+                    if is_current {
+                        return Ok(versions);
+                    }
                 }
             }
+            false
+        };
+
+        if !has_current_versions {
+            // Fetch new versions from crates.io
+            let crate_response = CRATES_IO_SYNC_CLIENT.get_crate(name)?;
+            let versions = crate_response.versions;
+            let timestamp = SystemTime::now();
+
+            // Write to disk first
+            self.write_versions(name, &versions)?;
+            self.write_versions_timestamp(name, timestamp)?;
+
+            // Update in-memory cache only after successful disk writes
+            self.versions.insert(name.to_owned(), versions.clone());
+            self.versions_timestamps.insert(name.to_owned(), timestamp);
+
+            Ok(versions)
+        } else {
+            // This branch should never be reached due to the early return above
+            unreachable!()
         }
-
-        // If we got here, we need to fetch new versions
-        let crate_response = CRATES_IO_SYNC_CLIENT.get_crate(name)?;
-        let versions = crate_response.versions;
-        let timestamp = SystemTime::now();
-
-        // Write versions to cache and update in-memory state
-        self.write_versions(name, &versions)?;
-        self.write_versions_timestamp(name, timestamp)?;
-        
-        // Only update in-memory state after all file operations succeed
-        self.versions.insert(name.to_owned(), versions.clone());
-        self.versions_timestamps.insert(name.to_owned(), timestamp);
-
-        Ok(versions)
     }
 
     fn versions(&mut self, name: &str) -> Result<Vec<Version>> {
