@@ -242,7 +242,7 @@ pub fn run() -> Result<()> {
 
     #[cfg(not(windows))]
     if opts::get().save_token {
-        return github::real::util::save_token();
+        return Github::save_token();
     }
 
     #[cfg(all(feature = "on-disk-cache", not(windows)))]

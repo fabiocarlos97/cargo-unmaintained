@@ -6,7 +6,7 @@ use std::{cell::RefCell, collections::HashMap, io::Read, rc::Rc, sync::LazyLock}
 mod map_ext;
 use map_ext::MapExt;
 
-pub mod util;
+pub(crate) mod util;
 
 #[allow(clippy::unwrap_used)]
 static RE: LazyLock<Regex> =
