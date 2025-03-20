@@ -35,7 +35,7 @@ use std::{
     collections::HashMap,
     fs::{File, create_dir_all, read_to_string, write},
     path::{Path, PathBuf},
-    process::{Command, Stdio, exit},
+    process::{Command, Stdio},
     str::FromStr,
     sync::LazyLock,
     time::{Duration, SystemTime},
@@ -73,6 +73,7 @@ thread_local! {
 
 #[cfg(all(feature = "on-disk-cache", not(windows)))]
 pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
+    use std::process::exit;
     let base_directories = xdg::BaseDirectories::new()
         .map_err(|err| {
             eprintln!("Failed to create base directories: {err}");
