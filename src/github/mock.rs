@@ -19,6 +19,8 @@ impl super::Github for Impl {
                 .replace(|c: char| !c.is_ascii_alphanumeric(), "_")
         );
         // Check if the repository exists
+        // Uses EXISTS_<normalized_url> environment variable to simulate repository existence
+        // If the variable exists and is set to "0", the repository is considered nonexistent
         let exists_key = format!(
             "EXISTS_{}",
             url.as_str()

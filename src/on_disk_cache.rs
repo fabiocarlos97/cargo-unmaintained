@@ -15,10 +15,6 @@
 //! - A url associated with the package was successfully cloned.
 //! - The clone was performed no more than `refresh_age` days ago.
 //!
-//! A package's entry is considered current if both of the following conditions are met:
-//! - A url associated with the package was successfully cloned.
-//! - The clone was performed no more than `refresh_age` days ago.
-//!
 //! If either of the above conditions are not met, an attempt is made to refresh the entry.
 //!
 //! A similar statement applies to versions.
@@ -41,9 +37,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-#[cfg(feature = "on-disk-cache")]
-use std::fs::remove_dir_all;
-
 use tempfile::{TempDir, tempdir};
 
 const DEFAULT_REFRESH_AGE: u64 = 30; // days
@@ -58,7 +51,7 @@ struct Entry {
     cloned_url: String,
 }
 
-pub struct Cache {
+pub(crate) struct Cache {
     tempdir: Option<TempDir>,
     refresh_age: u64, // days
     entries: HashMap<String, Entry>,
@@ -110,7 +103,7 @@ pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
 static CRATES_IO_SYNC_CLIENT: LazyLock<SyncClient> =
     LazyLock::new(|| SyncClient::new(USER_AGENT, RATE_LIMIT).unwrap());
 
-pub fn with_cache<T>(f: impl FnOnce(&mut Cache) -> T) -> T {
+pub(crate) fn with_cache<T>(f: impl FnOnce(&mut Cache) -> T) -> T {
     CACHE_ONCE_CELL.with_borrow_mut(|once_cell| {
         let _: &Cache = once_cell.get_or_init(|| {
             #[cfg(feature = "on-disk-cache")]
@@ -447,18 +440,10 @@ impl Cache {
     }
 }
 
-#[allow(dead_code)]
+#[cfg(all(feature = "on-disk-cache", not(windows)))]
 pub(crate) fn purge_cache_directory() -> Result<()> {
-    #[cfg(feature = "on-disk-cache")]
-    {
-        if CACHE_DIRECTORY.exists() {
-            remove_dir_all(&*CACHE_DIRECTORY).with_context(|| {
-                format!(
-                    "failed to remove cache directory: {}",
-                    CACHE_DIRECTORY.display()
-                )
-            })?;
-        }
+    if let Err(err) = std::fs::remove_dir_all(&*CACHE_DIRECTORY) {
+        eprintln!("Failed to remove cache directory: {err}");
     }
     Ok(())
 }

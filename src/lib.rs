@@ -235,12 +235,14 @@ pub fn run() -> Result<()> {
 
     let Cargo {
         subcmd: CargoSubCommand::Unmaintained(opts),
-    } = Cargo::parse_from(args().collect::<Vec<_>>());
+    } = Cargo::parse_from(args());
 
     opts::init(opts);
 
     #[cfg(not(windows))]
     if opts::get().save_token {
+        // smoelius: Currently, if additional options are passed besides --save-token, they are
+        // ignored and no error is emitted. This is ugly.
         return Github::save_token();
     }
 
