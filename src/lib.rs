@@ -248,7 +248,8 @@ pub fn run() -> Result<()> {
 
     #[cfg(all(feature = "on-disk-cache", not(windows)))]
     if opts::get().purge {
-        return on_disk_cache::purge_cache_directory();
+        on_disk_cache::purge_cache_directory();
+        return Ok(());
     }
 
     if Github::load_token(|_| Ok(()))? {

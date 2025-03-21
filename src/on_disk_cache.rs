@@ -441,11 +441,11 @@ impl Cache {
 }
 
 #[cfg(all(feature = "on-disk-cache", not(windows)))]
-pub(crate) fn purge_cache_directory() -> Result<()> {
-    if let Err(err) = std::fs::remove_dir_all(&*CACHE_DIRECTORY) {
+pub(crate) fn purge_cache_directory() {
+    use std::fs::remove_dir_all;
+    if let Err(err) = remove_dir_all(&*CACHE_DIRECTORY) {
         eprintln!("Failed to remove cache directory: {err}");
     }
-    Ok(())
 }
 
 fn url_digest(url: &str) -> String {
