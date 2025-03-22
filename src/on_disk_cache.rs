@@ -430,7 +430,10 @@ pub fn purge_cache() -> Result<()> {
 
         println!("Cache directory removed: {}", CACHE_DIRECTORY.display());
     } else {
-        println!("Cache directory does not exist: {}", CACHE_DIRECTORY.display());
+        println!(
+            "Cache directory does not exist: {}",
+            CACHE_DIRECTORY.display()
+        );
     }
 
     Ok(())
