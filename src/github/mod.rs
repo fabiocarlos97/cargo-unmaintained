@@ -3,7 +3,6 @@ use anyhow::Result;
 
 pub(crate) trait Github {
     fn load_token(f: impl FnOnce(&str) -> Result<()>) -> Result<bool>;
-    #[allow(dead_code)]
     fn save_token() -> Result<()>;
     fn archival_status(url: Url) -> Result<RepoStatus<()>>;
 }
@@ -17,7 +16,7 @@ mod mock;
 pub use mock::Impl;
 
 #[cfg(any(not(feature = "__mock_github"), feature = "__real_github"))]
-pub mod real;
+mod real;
 #[cfg(any(not(feature = "__mock_github"), feature = "__real_github"))]
 pub use real::Impl;
 #[cfg(any(not(feature = "__mock_github"), feature = "__real_github"))]

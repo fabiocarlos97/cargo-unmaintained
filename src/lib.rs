@@ -33,7 +33,7 @@ pub mod github;
 pub mod packaging;
 
 mod curl;
-pub mod on_disk_cache;
+mod on_disk_cache;
 mod opts;
 mod progress;
 mod serialize;
@@ -103,7 +103,8 @@ struct Opts {
     )]
     max_age: u64,
 
-    #[clap(long, help = "Do not use persistent cache")]
+    #[cfg(all(feature = "on-disk-cache", not(windows)))]
+    #[clap(long, help = "Do not cache data on disk for future runs")]
     no_cache: bool,
 
     #[clap(
@@ -125,10 +126,7 @@ struct Opts {
     package: Option<String>,
 
     #[cfg(all(feature = "on-disk-cache", not(windows)))]
-    #[clap(
-        long,
-        help = "Remove the cache directory at $HOME/.cache/cargo-unmaintained"
-    )]
+    #[clap(long, help = "Remove all cached data from disk and exit")]
     purge: bool,
 
     #[cfg(not(windows))]
@@ -239,7 +237,6 @@ pub fn run() -> Result<()> {
 
     opts::init(opts);
 
-    #[cfg(not(windows))]
     if opts::get().save_token {
         // smoelius: Currently, if additional options are passed besides --save-token, they are
         // ignored and no error is emitted. This is ugly.
@@ -248,8 +245,7 @@ pub fn run() -> Result<()> {
 
     #[cfg(all(feature = "on-disk-cache", not(windows)))]
     if opts::get().purge {
-        on_disk_cache::purge_cache_directory();
-        return Ok(());
+        return on_disk_cache::purge_cache().map(|_| false);
     }
 
     if Github::load_token(|_| Ok(()))? {

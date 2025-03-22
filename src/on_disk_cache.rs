@@ -15,6 +15,10 @@
 //! - A url associated with the package was successfully cloned.
 //! - The clone was performed no more than `refresh_age` days ago.
 //!
+//! A package's entry is considered current if both of the following conditions are met:
+//! - A url associated with the package was successfully cloned.
+//! - The clone was performed no more than `refresh_age` days ago.
+//!
 //! If either of the above conditions are not met, an attempt is made to refresh the entry.
 //!
 //! A similar statement applies to versions.
@@ -36,7 +40,6 @@ use std::{
     sync::LazyLock,
     time::{Duration, SystemTime},
 };
-
 use tempfile::{TempDir, tempdir};
 
 const DEFAULT_REFRESH_AGE: u64 = 30; // days
@@ -65,51 +68,25 @@ thread_local! {
 }
 
 #[cfg(all(feature = "on-disk-cache", not(windows)))]
-pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
-    use std::process::exit;
-    let base_directories = xdg::BaseDirectories::new()
-        .map_err(|err| {
-            eprintln!("Failed to create base directories: {err}");
-            exit(1);
-        })
-        .unwrap();
+#[allow(clippy::unwrap_used)]
+static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
+    let base_directories = xdg::BaseDirectories::new().unwrap();
     base_directories
         .create_cache_directory("cargo-unmaintained/v2")
-        .map_err(|err| {
-            eprintln!("Failed to create cache directory: {err}");
-            exit(1);
-        })
         .unwrap()
-});
-
-#[cfg(all(feature = "on-disk-cache", windows))]
-pub static CACHE_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
-    use std::process::exit;
-    let Ok(local_app_data) = std::env::var("LOCALAPPDATA") else {
-        eprintln!("LOCALAPPDATA environment variable not set");
-        exit(1);
-    };
-    let cache_dir = PathBuf::from(local_app_data)
-        .join("cargo-unmaintained")
-        .join("v2");
-    if let Err(err) = create_dir_all(&cache_dir) {
-        eprintln!("Failed to create cache directory: {err}");
-        exit(1);
-    }
-    cache_dir
 });
 
 #[allow(clippy::unwrap_used)]
 static CRATES_IO_SYNC_CLIENT: LazyLock<SyncClient> =
     LazyLock::new(|| SyncClient::new(USER_AGENT, RATE_LIMIT).unwrap());
 
-pub(crate) fn with_cache<T>(f: impl FnOnce(&mut Cache) -> T) -> T {
+pub fn with_cache<T>(f: impl FnOnce(&mut Cache) -> T) -> T {
     CACHE_ONCE_CELL.with_borrow_mut(|once_cell| {
         let _: &Cache = once_cell.get_or_init(|| {
-            #[cfg(feature = "on-disk-cache")]
+            #[cfg(all(feature = "on-disk-cache", not(windows)))]
             let temporary = crate::opts::get().no_cache;
 
-            #[cfg(not(feature = "on-disk-cache"))]
+            #[cfg(any(not(feature = "on-disk-cache"), windows))]
             let temporary = true;
 
             #[allow(clippy::panic)]
@@ -136,16 +113,14 @@ impl Cache {
         } else {
             None
         };
-        let cache = Self {
+        Ok(Self {
             tempdir,
             refresh_age,
             entries: HashMap::new(),
             repository_timestamps: HashMap::new(),
             versions: HashMap::new(),
             versions_timestamps: HashMap::new(),
-        };
-        cache.ensure_cache_dir()?;
-        Ok(cache)
+        })
     }
 
     #[cfg_attr(dylint_lib = "general", allow(non_local_effect_before_error_return))]
@@ -274,26 +249,23 @@ impl Cache {
         Ok(*self.repository_timestamps.get(&digest).unwrap())
     }
 
-    #[cfg_attr(dylint_lib = "general", allow(non_local_effect_before_error_return))]
     pub fn fetch_versions(&mut self, name: &str) -> Result<Vec<Version>> {
-        // First try to get versions from cache
+        // smoelius: Ignore any errors that may occur while reading/deserializing.
         if let Ok(versions) = self.versions(name) {
-            if let Ok(true) = self.versions_are_current(name) {
+            if self.versions_are_current(name).unwrap_or_default() {
                 return Ok(versions);
             }
         }
 
-        // Fetch new versions from crates.io
         let crate_response = CRATES_IO_SYNC_CLIENT.get_crate(name)?;
+        // smoelius: Avoid using anything other than `versions` from `CrateResponse`. In particular,
+        // avoid using `crate_data`. The same data should be available in the crates.io index.
         let versions = crate_response.versions;
-        let timestamp = SystemTime::now();
-
-        // Write to disk first
         self.write_versions(name, &versions)?;
-        self.write_versions_timestamp(name, timestamp)?;
-
-        // Update in-memory cache only after successful disk writes
         self.versions.insert(name.to_owned(), versions.clone());
+
+        let timestamp = SystemTime::now();
+        self.write_versions_timestamp(name, timestamp)?;
         self.versions_timestamps.insert(name.to_owned(), timestamp);
 
         Ok(versions)
@@ -394,57 +366,12 @@ impl Cache {
     fn base_dir(&self) -> &Path {
         let base_dir = self.tempdir.as_ref().map(TempDir::path);
 
-        #[cfg(feature = "on-disk-cache")]
-        {
-            // Use persistent cache directory if available
-            base_dir.unwrap_or(&CACHE_DIRECTORY)
-        }
+        #[cfg(all(feature = "on-disk-cache", not(windows)))]
+        return base_dir.unwrap_or(&CACHE_DIRECTORY);
 
-        #[cfg(not(feature = "on-disk-cache"))]
-        {
-            // When on-disk cache is disabled, always use temporary directory
-            #[allow(clippy::unwrap_used)]
-            base_dir.unwrap()
-        }
-    }
-
-    #[cfg(all(feature = "on-disk-cache", not(windows)))]
-    fn ensure_cache_dir(&self) -> Result<()> {
-        if self.tempdir.is_none() {
-            create_dir_all(&*CACHE_DIRECTORY).with_context(|| {
-                format!(
-                    "failed to create cache directory: {}",
-                    CACHE_DIRECTORY.display()
-                )
-            })?;
-        }
-        Ok(())
-    }
-
-    #[cfg(all(feature = "on-disk-cache", windows))]
-    fn ensure_cache_dir(&self) -> Result<()> {
-        if self.tempdir.is_none() {
-            create_dir_all(&*CACHE_DIRECTORY).with_context(|| {
-                format!(
-                    "failed to create cache directory: {}",
-                    CACHE_DIRECTORY.display()
-                )
-            })?;
-        }
-        Ok(())
-    }
-
-    #[cfg(not(feature = "on-disk-cache"))]
-    fn ensure_cache_dir(&self) -> Result<()> {
-        Ok(())
-    }
-}
-
-#[cfg(all(feature = "on-disk-cache", not(windows)))]
-pub(crate) fn purge_cache_directory() {
-    use std::fs::remove_dir_all;
-    if let Err(err) = remove_dir_all(&*CACHE_DIRECTORY) {
-        eprintln!("Failed to remove cache directory: {err}");
+        #[cfg(any(not(feature = "on-disk-cache"), windows))]
+        #[allow(clippy::unwrap_used)]
+        base_dir.unwrap()
     }
 }
 
@@ -478,4 +405,35 @@ fn branch_name(repo_dir: &Path) -> Result<String> {
     }
     let stdout = std::str::from_utf8(&output.stdout)?;
     Ok(stdout.trim_end().to_owned())
+}
+
+/// Purges the on-disk cache directory.
+///
+/// It removes the entire cache directory at $HOME/.cache/cargo-unmaintained/v2.
+#[cfg(all(feature = "on-disk-cache", not(windows)))]
+pub fn purge_cache() -> Result<()> {
+    use std::fs::remove_dir_all;
+
+    if CACHE_DIRECTORY.exists() {
+        // Attempt to get a lock before removing
+        let _lock = crate::flock::lock_path(&CACHE_DIRECTORY)
+            .with_context(|| format!("failed to lock `{}`", CACHE_DIRECTORY.display()))?;
+
+        // Remove the entire cache directory
+        remove_dir_all(&*CACHE_DIRECTORY).with_context(|| {
+            format!(
+                "failed to remove cache directory at `{}`",
+                CACHE_DIRECTORY.display()
+            )
+        })?;
+
+        println!("Cache directory removed: {}", CACHE_DIRECTORY.display());
+    } else {
+        println!(
+            "Cache directory does not exist: {}",
+            CACHE_DIRECTORY.display()
+        );
+    }
+
+    Ok(())
 }

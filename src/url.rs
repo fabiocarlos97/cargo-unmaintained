@@ -5,24 +5,24 @@ use std::sync::LazyLock;
 static RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^https://[^/]*/[^/]*/[^/]*").unwrap());
 
 #[derive(Clone, Copy, Debug, Default, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Url<'a>(&'a str);
+pub(crate) struct Url<'a>(&'a str);
 
 impl<'a> Url<'a> {
-    pub fn as_str(&self) -> &'a str {
+    pub(crate) fn as_str(&self) -> &'a str {
         self.0
     }
 
-    pub fn leak(self) -> Url<'static> {
+    pub(crate) fn leak(self) -> Url<'static> {
         Url(self.0.to_owned().leak())
     }
 
     #[allow(clippy::unwrap_used)]
-    pub fn shorten(self) -> Option<Self> {
+    pub(crate) fn shorten(self) -> Option<Self> {
         RE.captures(self.0)
             .map(|captures| captures.get(0).unwrap().as_str().into())
     }
 
-    pub fn trim_trailing_slash(self) -> Self {
+    pub(crate) fn trim_trailing_slash(self) -> Self {
         self.0.strip_suffix('/').map_or(self, Self::from)
     }
 }

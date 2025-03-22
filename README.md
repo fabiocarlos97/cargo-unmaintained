@@ -65,11 +65,11 @@ Options:
       --max-age <DAYS>  Age in days that a repository's last commit must not exceed for the
                         repository to be considered current; 0 effectively disables this check,
                         though ages are still reported [default: 365]
-      --no-cache        Do not use persistent cache
+      --no-cache        Do not cache data on disk for future runs
+      --purge           Remove all cached data from disk and exit
       --no-exit-code    Do not set exit status when unmaintained packages are found
       --no-warnings     Do not show warnings
   -p, --package <NAME>  Check only whether package NAME is unmaintained
-      --purge           Remove the cache directory at $HOME/.cache/cargo-unmaintained
       --save-token      Read a personal access token from standard input and save it to
                         $HOME/.config/cargo-unmaintained/token.txt
       --tree            Show paths to unmaintained packages

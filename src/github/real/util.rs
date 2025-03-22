@@ -23,7 +23,7 @@ static CONFIG_DIRECTORY: LazyLock<PathBuf> = LazyLock::new(|| {
 
 static TOKEN_PATH: LazyLock<PathBuf> = LazyLock::new(|| CONFIG_DIRECTORY.join("token.txt"));
 
-pub(crate) static PERSONAL_TOKEN: OnceLock<String> = OnceLock::new();
+pub(super) static PERSONAL_TOKEN: OnceLock<String> = OnceLock::new();
 
 pub fn load_token(f: impl FnOnce(&str) -> Result<()>) -> Result<bool> {
     let token_untrimmed = if let Ok(path) = var("GITHUB_TOKEN_PATH") {
@@ -62,8 +62,7 @@ pub fn load_token(f: impl FnOnce(&str) -> Result<()>) -> Result<bool> {
     Ok(true)
 }
 
-#[allow(dead_code)]
-pub fn save_token() -> Result<()> {
+pub(crate) fn save_token() -> Result<()> {
     println!("Please paste a personal access token below. The token needs no scopes.");
 
     let mut buf = String::new();
